@@ -1,5 +1,5 @@
 
-# 🌸 NTGM Linux Rice
+# 🌸 NTGM "arch" Rice
 
 My personal dotfiles for CachyOS + Kitty + Zsh.
 
