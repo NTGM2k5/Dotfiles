@@ -1,4 +1,4 @@
-cat > ~/dotfiles/README.md << 'EOF'
+
 # 🌸 NTGM Linux Rice
 
 My personal dotfiles for CachyOS + Kitty + Zsh.
