@@ -9,7 +9,7 @@ My personal dotfiles for CachyOS + Kitty + Zsh.
 |---|---|
 | `fastfetch/` | Fastfetch config with NTGM ascii art |
 | `kitty.conf` | Kitty terminal config |
-| `scripts/pomodoro-terminal.sh` | Terminal Pomodoro timer (Zsh) |
+| `pomo/pomodoro-terminal.sh` | Terminal Pomodoro timer (Zsh) |
 
 ---
 
@@ -26,7 +26,7 @@ sudo pacman -S ffmpeg libnotify dunst
 ### Install (one-liner)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/NTGM2k5/Dotfiles/main/scripts/pomodoro-terminal.sh \
+curl -fsSL https://raw.githubusercontent.com/NTGM2k5/Dotfiles/main/pomo/pomodoro-terminal.sh \
   -o ~/.local/bin/pomodoro-terminal && chmod +x ~/.local/bin/pomodoro-terminal
 ```
 
