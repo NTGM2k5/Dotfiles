@@ -1,6 +1,8 @@
 
 # 🌸 NTGM "arch" Rice
 
+![preview](preview.png)
+
 My personal dotfiles for CachyOS + Kitty + Zsh.
 
 ## 📦 Contents
