@@ -53,8 +53,8 @@ echo 'alias pomo="pomodoro-terminal"' >> ~/.zshrc
 |---|---|
 | `Enter` | Pause / Resume |
 | `Ctrl+B` | Back to menu |
+| `Ctrl+C` | Quit app entirely |
 EOF
-
 git add README.md
 git commit -m "docs: add README with install guide"
 git push
