@@ -57,13 +57,13 @@
             "text": "echo $USER",
             "format": "{>22} │"
         },
-        {
-            "type": "command",
-            "key": "│   hname ",
-            "text": "hostnamectl hostname",
-            "format": "{>22} │"
-        },
-        {
+	{
+            "type": "wm",
+            "key": "│   wm    ",
+            "format": "{pretty-name>22} │"
+	},
+
+	{
             "type": "os",
             "key": "│ 󰻀  distro",
             "format": "{pretty-name>22} │"
