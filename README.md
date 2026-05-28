@@ -37,6 +37,8 @@ curl -fsSL https://raw.githubusercontent.com/NTGM2k5/Dotfiles/main/pomo/pomodoro
 ```bash
 pomo
 
+
+
 ### Modes
 
 | Key | Mode |
