@@ -35,10 +35,7 @@ curl -fsSL https://raw.githubusercontent.com/NTGM2k5/Dotfiles/main/pomo/pomodoro
 ### Run
 
 ```bash
-pomodoro-terminal
-# hoặc thêm alias vào .zshrc:
-echo 'alias pomo="pomodoro-terminal"' >> ~/.zshrc
-```
+pomo
 
 ### Modes
 
