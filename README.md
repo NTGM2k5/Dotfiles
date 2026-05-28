@@ -3,7 +3,7 @@
 
 ![preview](preview.png)
 
-My personal dotfiles for CachyOS + Kitty + Zsh.
+My personal dotfiles for CachyOS + Hyprland + HYDE.
 
 ## 📦 Contents
 
