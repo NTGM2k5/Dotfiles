@@ -1,0 +1,56 @@
+$HOME/.config/kitty/theme.conf|killall -SIGUSR1 kitty
+# The basic colors
+foreground              #F9F5F6
+background              #1A0A12
+selection_foreground    #1A0A12
+selection_background    #F2BED1
+# Cursor colors
+cursor                  #F2BED1
+cursor_text_color       #1A0A12
+# URL underline color when hovering with mouse
+url_color               #F2BED1
+# Kitty window border colors
+active_border_color     #F2BED1
+inactive_border_color   #3D2030
+bell_border_color       #FDCEDF
+# OS Window titlebar colors
+wayland_titlebar_color system
+macos_titlebar_color system
+# Tab bar colors
+active_tab_foreground   #1A0A12
+active_tab_background   #F2BED1
+inactive_tab_foreground #F9F5F6
+inactive_tab_background #3D2030
+tab_bar_background      #1A0A12
+# Colors for marks (marked text in the terminal)
+mark1_foreground #1A0A12
+mark1_background #F2BED1
+mark2_foreground #1A0A12
+mark2_background #FDCEDF
+mark3_foreground #1A0A12
+mark3_background #E8A0B8
+# The 16 terminal colors
+# black
+color0 #3D2030
+color8 #60102E
+# red
+color1 #B85080
+color9 #D4789A
+# green
+color2  #8C2855
+color10 #B85080
+# yellow
+color3  #D4789A
+color11 #E8A0B8
+# blue
+color4  #F2BED1
+color12 #FDCEDF
+# magenta
+color5  #E8A0B8
+color13 #F2BED1
+# cyan
+color6  #D4789A
+color14 #E8A0B8
+# white
+color7  #F9F5F6
+color15 #F8E8EE
