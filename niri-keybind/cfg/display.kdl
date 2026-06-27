@@ -1,0 +1,15 @@
+// ────────────── Output Configuration ──────────────
+
+output "LG Electronics 22EN43 403NDDM40546" {
+    mode "1920x1080@60.000"
+    scale 1
+    transform "90"
+    position x=0 y=0
+}
+
+output "LG Electronics LG FHD 508BOKJ1K093" {
+    mode "1920x1080@119.997"
+    scale 1
+    transform "normal"
+    position x=1080 y=480
+}
