@@ -1,7 +1,8 @@
 
 # 🌸 NTGM "arch" Rice
 
-![preview](preview.png)
+![preview](./NTGM-hyprland.png)
+
 ![Niri Rice Preview](./NTGM-niri.png)
 
 My dotfiles for CachyOS + Hyprland + HYDE.
