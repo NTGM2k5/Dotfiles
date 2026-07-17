@@ -1,7 +1,7 @@
 
 # 🌸 NTGM "arch" Rice
 
-![preview](./NTGM-hyprland.png)
+![preview](./NTGM-hyprland.jpg)
 
 ![Niri Rice Preview](./NTGM-niri.png)
 
