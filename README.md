@@ -1,5 +1,5 @@
 
-# 🌸 NTGM "arch" Rice
+# 🌸 NTGM "arch" Rice ✨
 
 ![preview](./NTGM-hyprland.jpg)
 
