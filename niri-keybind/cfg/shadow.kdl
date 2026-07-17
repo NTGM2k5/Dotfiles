@@ -1,9 +1,0 @@
-layout {
-    shadow {
-        on
-        softness 15
-        spread 0
-        offset x=10 y=10
-        color "#000000cc"
-    }
-}
