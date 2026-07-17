@@ -102,7 +102,8 @@ binds {
     Mod+TAB                             { focus-workspace-previous; }
 
     // ─── Layout Controls ───
-    Mod+CTRL+F                          { expand-column-to-available-width; }
+    Mod+Alt+F                           { expand-column-to-available-width; }
+    Mod+Alt+C                           { set-column-width "80%"; }
     Mod+C                               { center-column; }
     Mod+Minus                           { set-column-width "-10%"; }
     Mod+Equal                           { set-column-width "+10%"; }
