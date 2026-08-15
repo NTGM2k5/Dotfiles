@@ -22,75 +22,76 @@
          "break",
         {
             "type": "custom",
-            "key": "╭─────────────────────────────────────────╮"
+            "key": "╭─────────────────╮"
         },
-         {   "type": "custom", "key": "│                                         │" },
+         {   "type": "custom", "key": "│                 │" },
         {
             "type": "kernel",
             "key": "│   kernel",
-            "format": "{release>28} │"
+            "format": "     │ {release} "
         },
-           {   "type": "custom", "key": "│                                         │" },
+           {   "type": "custom", "key": "│                 │" },
         {
             "type": "command",
             "key": "│   uptime",
             "text": "uptime -p | cut -d ' ' -f 2-",
-            "format": "{>28} │"
+            "format": "     │ {0} "
         },
-         {   "type": "custom", "key": "│                                         │" },
+         {   "type": "custom", "key": "│                 │" },
         {
             "type": "shell",
             "key": "│   shell ",
-            "format": "{pretty-name>28} │"
+            "format": "     │ {pretty-name} "
         },
-        {   "type": "custom", "key": "│                                         │" },
+        {   "type": "custom", "key": "│                 │" },
         {
             "type": "command",
             "key": "│   mem   ",
             "text": "free -m | awk 'NR==2{printf \"%.2f GiB / %.2f GiB\",$3/1024,$2/1024}'",
-            "format": "{>28} │"
+            "format": "     │ {0} "
         },
-          {   "type": "custom", "key": "│                                         │" },
+          {   "type": "custom", "key": "│                 │" },
         {
             "type": "packages",
             "key": "│   pkgs  ",
-            "format": "{all>28} │"
+            "format": "     │ {all} "
         },
-        {   "type": "custom", "key": "│                                         │" },
+        {   "type": "custom", "key": "│                 │" },
         {
             "type": "command",
             "key": "│   user  ",
             "text": "echo $USER",
-            "format": "{>28} │"
+            "format": "     │ {0} "
         },
-       {   "type": "custom", "key": "│                                         │" },
+       {   "type": "custom", "key": "│                 │" },
           {
             "type": "cpu",
             "key": "│ 󰍛  cpu  ",
-            "format": " {>28} │"
+            "format": "      │ {0} "
     },
-     {   "type": "custom", "key": "│                                         │" },
-          {
-            "type": "gpu",
-            "key": "│ 󰢮  gpu  ",
-            "format": " {>28} │"
-    },
-           {   "type": "custom", "key": "│                                         │" },
+    {   "type": "custom", "key": "│                 │" },
+     {
+            "key": "│ 󰢮  GPU  ",
+            "format": "      │ {name} ",
+            "type":"gpu",
+            
+        },
+           {   "type": "custom", "key": "│                 │" },
 	{
             "type": "wm",
             "key": "│   wm    ",
-            "format": "{pretty-name>28} │"
+            "format": "     │ {pretty-name} "
 	},
- {   "type": "custom", "key": "│                                         │" },
+ {   "type": "custom", "key": "│                 │" },
 	{
             "type": "os",
             "key": "│ 󰻀  distro",
-            "format": "{pretty-name>28} │"
+            "format": "     │ {pretty-name} "
         },
-    {   "type": "custom", "key": "│                                         │" },
+    {   "type": "custom", "key": "│                 │" },
         {
             "type": "custom",
-            "key": "╰─────────────────────────────────────────╯"
+            "key": "╰─────────────────╯"
         },
         {
          "type": "colors",
