@@ -1,12 +1,12 @@
 {
     "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
     "logo": {
-    "type": "file",
-    "source": "~/Pictures/ascii-art.txt",
-    "width": 50,
-    "padding": {
-        	"top":2,
-        	"left": 3
+        "type": "file",
+        "source": "~/Pictures/ascii-art.txt",
+        "width": 50,
+        "padding": {
+            "top": 2,
+            "left": 3
         }
     },      
     "display": {
@@ -14,87 +14,86 @@
         "color": "white"
     },
     "modules": [
-	{
-	"type": "command",
-	"key": " ",
-	"text": "cat ~/Pictures/ntgm-text.txt"
-    	},
-         "break",
+        {
+            "type": "command",
+            "key": " ",
+            "text": "cat ~/Pictures/ntgm-text.txt"
+        },
+        "break",
         {
             "type": "custom",
             "key": "╭─────────────────╮"
         },
-         {   "type": "custom", "key": "│                 │" },
+        { "type": "custom", "key": "│                 │" },
         {
             "type": "kernel",
-            "key": "│   kernel",
+            "key": "│ \u001b[31m  kernel\u001b[0m",
             "format": "     │ {release} "
         },
-           {   "type": "custom", "key": "│                 │" },
+        { "type": "custom", "key": "│                 │" },
         {
             "type": "command",
-            "key": "│   uptime",
+            "key": "│ \u001b[31m  uptime\u001b[0m",
             "text": "uptime -p | cut -d ' ' -f 2-",
             "format": "     │ {0} "
         },
-         {   "type": "custom", "key": "│                 │" },
+        { "type": "custom", "key": "│                 │" },
         {
             "type": "shell",
-            "key": "│   shell ",
+            "key": "│ \u001b[33m  shell\u001b[0m ",
             "format": "     │ {pretty-name} "
         },
-        {   "type": "custom", "key": "│                 │" },
+        { "type": "custom", "key": "│                 │" },
         {
             "type": "command",
-            "key": "│   mem   ",
+            "key": "│ \u001b[33m  mem\u001b[0m   ",
             "text": "free -m | awk 'NR==2{printf \"%.2f GiB / %.2f GiB\",$3/1024,$2/1024}'",
             "format": "     │ {0} "
         },
-          {   "type": "custom", "key": "│                 │" },
+        { "type": "custom", "key": "│                 │" },
         {
             "type": "packages",
-            "key": "│   pkgs  ",
+            "key": "│ \u001b[32m  pkgs\u001b[0m  ",
             "format": "     │ {all} "
         },
-        {   "type": "custom", "key": "│                 │" },
+        { "type": "custom", "key": "│                 │" },
         {
             "type": "command",
-            "key": "│   user  ",
+            "key": "│ \u001b[32m  user\u001b[0m  ",
             "text": "echo $USER",
             "format": "     │ {0} "
         },
-       {   "type": "custom", "key": "│                 │" },
-          {
+        { "type": "custom", "key": "│                 │" },
+        {
             "type": "cpu",
-            "key": "│ 󰍛  cpu  ",
-            "format": "      │ {0} "
-    },
-    {   "type": "custom", "key": "│                 │" },
-     {
-            "key": "│ 󰢮  GPU  ",
-            "format": "      │ {name} ",
-            "type":"gpu",
-            
+            "key": "│ \u001b[36m󰍛  cpu\u001b[0m   ",
+            "format": "     │ {0} "
         },
-           {   "type": "custom", "key": "│                 │" },
-	{
+        { "type": "custom", "key": "│                 │" },
+        {
+            "type": "gpu",
+            "key": "│ \u001b[36m󰢮  GPU\u001b[0m   ",
+            "format": "     │ {name} "
+        },
+        { "type": "custom", "key": "│                 │" },
+        {
             "type": "wm",
-            "key": "│   wm    ",
-            "format": "     │ {pretty-name} "
-	},
- {   "type": "custom", "key": "│                 │" },
-	{
-            "type": "os",
-            "key": "│ 󰻀  distro",
+            "key": "│ \u001b[34m  wm\u001b[0m    ",
             "format": "     │ {pretty-name} "
         },
-    {   "type": "custom", "key": "│                 │" },
+        { "type": "custom", "key": "│                 │" },
+        {
+            "type": "os",
+            "key": "│ \u001b[35m󰻀  distro\u001b[0m",
+            "format": "     │ {pretty-name} "
+        },
+        { "type": "custom", "key": "│                 │" },
         {
             "type": "custom",
             "key": "╰─────────────────╯"
         },
         {
-         "type": "colors",
+            "type": "colors",
             "symbol": "circle",
             "paddingLeft": 2
         },
