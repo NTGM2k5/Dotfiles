@@ -1,0 +1,33 @@
+* {
+    border: none;
+    border-radius: 0;
+    min-height: 0;
+    font-size: 13px;
+}
+
+window#waybar {
+    background: #000000;
+    color: #ffffff;
+}
+
+#workspaces button {
+    background: transparent;
+    color: #888888;
+    padding: 0 8px;
+}
+
+#workspaces button.active {
+    color: #000000;
+    background: #ffffff;
+}
+
+#clock,
+#pulseaudio,
+#tray {
+    background: transparent;
+    padding: 0 10px;
+}
+#custom-cava {
+    color: #ffffff;
+    padding: 0 10px;
+}
