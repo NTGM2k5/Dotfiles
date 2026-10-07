@@ -1,0 +1,22 @@
+#!/bin/bash
+# Biến số 0-7 của cava thành ký tự thanh ▁▂▃▄▅▆▇█
+bars="▁▂▃▄▅▆▇█"
+dict="s/;//g;"
+for i in $(seq 0 7); do
+    dict="${dict}s/$i/${bars:$i:1}/g;"
+done
+
+cat > /tmp/cava_waybar.conf << EOF
+[general]
+bars = 14
+framerate = 30
+
+[output]
+method = raw
+raw_target = /dev/stdout
+data_format = ascii
+ascii_max_range = 7
+EOF
+
+pkill -f "cava -p /tmp/cava_waybar.conf"
+cava -p /tmp/cava_waybar.conf | sed -u "$dict"
