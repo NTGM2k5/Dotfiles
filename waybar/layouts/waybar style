@@ -6,7 +6,7 @@
 }
 
 window#waybar {
-    background: #000000;
+    background: #131313;
     color: #ffffff;
 }
 
@@ -17,7 +17,7 @@ window#waybar {
 }
 
 #workspaces button.active {
-    color: #000000;
+    color: #131313;
     background: #ffffff;
 }
 
@@ -30,4 +30,9 @@ window#waybar {
 #custom-cava {
     color: #ffffff;
     padding: 0 10px;
+}
+#custom-layout {
+    padding: 0 10px;
+    color: #fcfcfc;
+    background: transparent;
 }
