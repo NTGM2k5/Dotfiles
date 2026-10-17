@@ -1,0 +1,109 @@
+configuration {
+    modi: "combi,drun,layout:/home/ntgm/.config/rofi/layout.sh";
+    combi-modes: [drun, layout];
+    combi-display-format: "{text}";
+    show-icons: true;
+    case-sensitive: false;
+    drun-display-format: "{name} <span weight='light' size='small'><i>({generic})</i></span>";
+}
+
+* {
+    font: "Noto Sans 11";
+}
+
+window {
+    width: 1000px;
+    height: 480px;
+    background-color: #000000;
+    border: 0px;
+    border-color: #ffffff;
+    border-radius: 0px;
+    padding: 0px;
+}
+
+mainbox {
+    orientation: horizontal;
+    children: [ imagebox, listbox ];
+    spacing: 0px;
+    padding: 0px;
+    background-color: #000000;
+}
+
+imagebox {
+    width: 360px;
+    expand: false;
+    background-image: url("/home/ntgm/.config/rofi/side-crop.jpg", height);
+    border-radius: 0px;
+}
+
+listbox {
+    orientation: vertical;
+    children: [ inputbar, listview ];
+    spacing: 12px;
+    padding: 16px;
+    background-color: #131313;
+}
+
+inputbar {
+    children: [ entry ];
+    background-color: transparent;
+    border: 1px;
+    border-color: #ffffff50;
+    border-radius: 0px;
+    padding: 10px 12px;
+}
+
+entry {
+    placeholder: "Search";
+    placeholder-color: #ffffff80;
+    text-color: #ffffff;
+    background-color: transparent;
+}
+
+listview {
+    columns: 1;
+    lines: 7;
+    fixed-columns: true;
+    spacing: 4px;
+    scrollbar: false;
+    border: 0px;
+    background-color: transparent;
+}
+
+element {
+    orientation: horizontal;
+    spacing: 12px;
+    padding: 8px 10px;
+    border-radius: 0px;
+    background-color: #131313;
+    text-color: #ffffff;
+}
+
+element normal.normal,
+element alternate.normal,
+element normal.active,
+element alternate.active,
+element normal.urgent,
+element alternate.urgent {
+    background-color: #131313;
+    text-color: #ffffff;
+}
+
+element selected.normal,
+element selected.active,
+element selected.urgent {
+    background-color: #ffffff40;
+    text-color: #ffffff;
+}
+
+element-icon {
+    size: 24px;
+    vertical-align: 0.5;
+    background-color: transparent;
+}
+
+element-text {
+    text-color: #ffffff;
+    vertical-align: 0.5;
+    background-color: transparent;
+}
