@@ -1,5 +1,3 @@
-exec-once=noctalia
-
 # More option see https://github.com/DreamMaoMao/mango/wiki/
 
 # Window effect
@@ -48,10 +46,10 @@ animation_duration_open=550
 animation_duration_tag=350
 animation_duration_close=800
 animation_duration_focus=0
-animation_curve_open=0.46,1.0,0.29,1
+animation_curve_open=0.18,0.62,0.40,1
 animation_curve_move=0.46,1.0,0.29,1
 animation_curve_tag=0.46,1.0,0.29,1
-animation_curve_close=0.08,0.92,0,1
+animation_curve_close=0.4,0,1,2
 animation_curve_focus=0.46,1.0,0.29,1
 animation_curve_opafadeout=0.5,0.5,0.5,0.5
 animation_curve_opafadein=0.46,1.0,0.29,1
@@ -103,6 +101,7 @@ focus_cross_tag=0
 enable_floating_snap=0
 snap_distance=30
 cursor_size=24
+env=XCURSOR_THEME,Bibata-Modern-Classic
 drag_tile_to_tile=1
 drag_tile_small=1
 
@@ -173,6 +172,7 @@ bind=SUPER,comma,spawn,noctalia msg settings-toggle
 bind=SUPER,t,spawn,kitty
 bind=SUPER,e,spawn,nautilus
 bind=SUPER,w,spawn,helium-browser
+bind=SUPER,d,spawn,rofi -show drun
 
 # exit
 #bind=SUPER,m,quit
@@ -296,6 +296,8 @@ gesturebind=none,down,4,leaveoverview
 
 #screenshot
 bind=CTRL+SHIFT,s,spawn_shell,g=$(slurp -d) && [ -n "$g" ] && f=$HOME/Pictures/Screenshots/$(date +%Y%m%d%H%M%S).png && grim -g "$g" "$f" && wl-copy < "$f"
+#bind=ALT+SHIFT,s,spawn_shell,g=$(slurp -d) && [ -n "$g" ] && grim -g "$g" $HOME/Pictures/Screenshots/$(date +%Y%m%d%H%M%S).png
+#bind=ALT+SHIFT,s,spawn_shell,grim $HOME/Pictures/Screenshots/$(date +%Y%m%d%H%M%S).png
 # layer rule
 layerrule=no_shadow,layer_name:noctalia
 layerrule=no_shadow,layer_name:panel
@@ -306,5 +308,15 @@ monitorrule=name:^HDMI-A-1$,width:1920,height:1080,refresh:120,x:0,y:0,scale:1,r
 
 exec-once = dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP=GNOME
 exec-once = gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+exec-once = wl-paste --type text --watch cliphist store
+exec-once = wl-paste --type image --watch cliphist store
 
 source=~/.config/mango/noctalia.conf
+windowrule=isfloating:1,isnoborder:1,width:218,height:192,offsetx:0,offsety:-110,appid:gsimplecal
+# Quy tắc animation mặc định cho toàn bộ Rofi (drun, v.v.)
+layerrule=animation_type_open:slide,layer_name:rofi
+layerrule=animation_type_close:slide,layer_name:rofi
+
+# Quy tắc animation RIÊNG cho Rofi Layout
+layerrule=animation_type_open:zoom,layer_name:rofi-layout
+layerrule=animation_type_close:zoom,layer_name:rofi-layout
