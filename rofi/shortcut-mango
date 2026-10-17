@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=MANGO
+Comment=Mango Control Center
+Exec=rofi -show mango -modi "mango:/home/ntgm/.config/rofi/mango-menu.sh"
+Icon=preferences-other
+Categories=Utility;
+Keywords=MANGO;mango;
