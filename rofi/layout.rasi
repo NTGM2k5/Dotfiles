@@ -1,0 +1,80 @@
+* {
+    font: "Noto Sans 11";
+    background-color: transparent;
+    text-color: #ffffff;
+}
+
+window {
+    width: 600px;
+    background-color: #131313;
+    border: 0px;
+    border-color: #ffffff30;
+    border-radius: 0px;
+    padding: 0px;
+}
+
+mainbox {
+    orientation: horizontal;
+    children: [ custom-sidebar, listbox ];
+    spacing: 0px;
+    background-color: transparent;
+}
+
+/* Khung chứa 2 vạch màu bên trái */
+custom-sidebar {
+    orientation: horizontal;
+    expand: false; /* Cho phép khung màu kéo giãn tối đa chiều cao */
+    width: 50px;  /* Độ rộng của vạch màu */
+    children: [ bar-left, bar-right ];
+    spacing: 0px;
+    background-color: transparent;
+}
+
+/* Vạch màu thứ nhất (bên trái) */
+bar-left {
+    expand: true;
+    vertical-align: 1.0;
+    background-color: #ffffff80;
+}
+
+/* Vạch màu thứ hai (bên phải) */
+bar-right {
+    expand: true;
+    background-color: #ffffff30;
+}
+
+/* Cấu trúc phần danh sách bên phải */
+listbox {
+    padding: 12px;
+    orientation: vertical;
+    expand: true;
+    children: [ listview ];
+    background-color: transparent;
+}
+
+listview {
+    columns: 1;
+    lines: 10;
+    fixed-height: false;
+    spacing: 4px;
+    scrollbar: false;
+    background-color: transparent;
+}
+
+element {
+    padding: 8px 16px;
+    border-radius: 0px;
+    background-color: transparent;
+    text-color: #ffffff;
+}
+
+element selected.normal {
+    background-color: #ffffff30;
+    text-color: #ffffff;
+}
+
+element-text {
+    text-color: inherit;
+    horizontal-align: 0.0;
+    vertical-align: 0.5;
+}
