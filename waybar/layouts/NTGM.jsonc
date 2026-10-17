@@ -1,31 +1,31 @@
 {
     "layer": "top",
     "output": ["HDMI-A-1"],
-    "height": 30,
+    "height": 28,
     "exclusive": true,
     "passthrough": false,
     "reload_style_on_change": true,
 
-    "modules-left": ["ext/workspaces" , "custom/cava"],
+    "modules-left": ["ext/workspaces", "custom/cava" , "custom/layout"],
     "modules-center": ["clock"],
     "modules-right": ["pulseaudio", "tray"],
 
     "custom/cava": {
-    "exec": "$HOME/.config/waybar/cava.sh",
-    "format": "{}",
-    "tooltip": false
-},
+        "exec": "$HOME/.config/waybar/cava.sh",
+        "format": "{}",
+        "tooltip": false
+    },
 
     "ext/workspaces": {
-    "format": "{icon}",
-    "format-icons": {
-        "default": "○",
-        "active": "●"
+        "format": "{icon}",
+        "format-icons": {
+            "default": "○",
+            "active": "●"
+        },
+        "sort-by-id": true,
+        "on-scroll-up": "mmsg dispatch viewtoleft",
+        "on-scroll-down": "mmsg dispatch viewtoright"
     },
-    "sort-by-id": true,
-    "on-scroll-up": "mmsg dispatch viewtoleft",
-    "on-scroll-down": "mmsg dispatch viewtoright"  
-},
 
     "clock": {
         "format": "{:%H:%M}",
@@ -40,6 +40,13 @@
     },
 
     "tray": {
-        "spacing": 10
-    }
+        "spacing": 6
+    },
+
+   "custom/layout": {
+    "exec": "mmsg get monitor HDMI-A-1 | jq -r '.layout_symbol'",
+    "interval": 1,
+    "format": "{}",
+    "tooltip": false
+}
 }
