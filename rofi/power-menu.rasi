@@ -1,0 +1,70 @@
+* {
+    font: "JetBrainsMono Nerd Font 13";
+    background-color: transparent;
+    text-color: #ffffff;
+}
+
+window {
+    width: 388px;
+    background-color: #131313; /* Nền cửa sổ xám đậm chuẩn giao diện mẫu */
+    border-color: #ffffff30;     /* Màu viền tối đồng bộ */
+    border: 0px;
+    border-radius: 0px;
+    padding: 16px;
+}
+
+mainbox {
+    orientation: vertical;
+    children: [ inputbar, listview ];
+    spacing: 12px;
+    background-color: #131313;
+}
+
+inputbar {
+    background-color: #131313; /* Nền thanh header đậm hơn một chút tạo điểm nhấn */
+    border: 1px;
+    border-color: #ffffff30;
+    padding: 4px;
+    margin: 0px 5px 0px 0px; 
+    children: [ prompt ];
+}
+
+prompt {
+    background-color: #ffffff30; /* Màu xanh lá mạ đặc trưng */
+    text-color: #ffffff;       /* Chữ tối màu tương phản trên nền xanh */
+    padding: 4px 10px;
+    margin: 0px;
+    content: "power";
+}
+
+listview {
+    layout: horizontal;
+    lines: 4;
+    spacing: 10px;
+    background-color: #131313;
+    fixed-height: true;
+}
+
+element {
+    width: 80px;
+    height: 0px;
+    padding: 20px;
+    background-color: #232323; /* Nền các nút bấm khớp với thanh inputbar */
+    border: 0px;
+    border-color: #2a2e38;
+    border-radius: 0px;
+    children: [ element-text ];
+}
+
+element selected.normal {
+    background-color: #ffffff30; /* Khi chọn chuyển sang màu xanh lá mạ */
+    text-color: #121418;
+}
+
+element-text {
+    text-color: inherit;
+    font: "JetBrainsMono Nerd Font 22";
+    horizontal-align: 0.5;
+    vertical-align: 0.5;
+    expand: true;
+}
