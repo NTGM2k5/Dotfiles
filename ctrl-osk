@@ -1,0 +1,879 @@
+#!/usr/bin/env python3
+"""ctrl-osk: bàn phím ảo + chuột điều khiển bằng tay cầm cho Wayland (MangoWM / wlroots).
+
+Cách dùng:
+  ctrl-osk                      # tự tìm tay cầm
+  ctrl-osk /dev/input/event12   # chỉ định thiết bị
+  pkill -USR1 -f ctrl-osk       # bật/tắt bàn phím từ bên ngoài
+  pkill -USR2 -f ctrl-osk       # bật/tắt chế độ chuột từ bên ngoài
+
+Điều khiển bàn phím (khi bàn phím đang hiện):
+  D-pad / Cần trái : di chuyển
+  A                : gõ phím đang chọn
+  B                : Backspace
+  X                : Space
+  Y                : bật/tắt Shift
+  LB / RB          : mũi tên trái / phải
+  Back + Start     : ẩn/hiện bàn phím (hoạt động cả khi đang ẩn)
+
+Chế độ chuột (bật/tắt bằng Back + LB):
+  Cần trái         : di chuyển con trỏ
+  A                : chuột trái (giữ để kéo thả)
+  B                : chuột phải
+  Cần phải         : cuộn lên/xuống/trái/phải
+  Bật chế độ chuột khi bàn phím đang hiện: cần trái = con trỏ, A = click vào phím cần gõ,
+  cần phải = dời bàn phím (không cuộn), nhấn cần phải = nhảy đỉnh/đáy.
+  Tắt chế độ chuột (Back + LB) để quay lại chọn phím bằng d-pad/cần trái.
+  Nút gán thêm (X, Y, RB, LT, RT, L3, R3, d-pad...): sửa khối MOUSE_EXTRA gần đầu file.
+"""
+import os
+import sys
+import signal
+import subprocess
+
+# gtk4-layer-shell phải được nạp trước libwayland-client -> re-exec với LD_PRELOAD
+_LIB = "/usr/lib/libgtk4-layer-shell.so"
+if os.path.exists(_LIB) and _LIB not in os.environ.get("LD_PRELOAD", ""):
+    os.environ["LD_PRELOAD"] = (_LIB + " " + os.environ.get("LD_PRELOAD", "")).strip()
+    os.execv(sys.executable, [sys.executable] + sys.argv)
+
+import gi
+
+gi.require_version("Gtk", "4.0")
+gi.require_version("Gdk", "4.0")
+gi.require_version("Gtk4LayerShell", "1.0")
+from gi.repository import Gtk, Gdk, GLib, Gio, Gtk4LayerShell as LayerShell  # noqa: E402
+
+import evdev  # noqa: E402
+from evdev import ecodes as e, UInput  # noqa: E402
+
+# ---------------------------------------------------------------- cấu hình --
+TOGGLE_CHORD = {e.BTN_SELECT, e.BTN_START}   # Back + Start: ẩn/hiện bàn phím
+MOUSE_CHORD = {e.BTN_SELECT, e.BTN_TL}       # Back + LB: bật/tắt chế độ chuột
+MOUSE_BTNS = {e.BTN_A: e.BTN_LEFT, e.BTN_B: e.BTN_RIGHT}
+
+# ---- NÚT GÁN THÊM KHI Ở CHẾ ĐỘ CHUỘT (sửa ở đây) -------------------------------
+# Tên nút:  X  Y  RB  LT  RT  L3  R3  GUIDE  UP  DOWN  LEFT  RIGHT
+#   (A, B = click trái/phải; Back, Start, LB dùng cho các tổ hợp nên không gán được)
+# Hành động (chữ thường/hoa đều được):
+#   "key:super"           giữ nút = giữ phím (alt, ctrl, shift, super, enter, esc, ...)
+#   "mouse:middle"        giữ nút = giữ chuột (left, right, middle, back, forward)
+#   "scroll:up"           cuộn một nấc (up, down, left, right)
+#   "cmd:kitty"           chạy lệnh shell
+#   "kb:toggle"           ẩn/hiện bàn phím ảo;   "kb:snap"  nhảy bàn phím đỉnh <-> đáy
+MOUSE_EXTRA = {
+    "X": "mouse:middle",          # click chuột giữa (mở link ở tab mới, đóng tab...)
+    "Y": "key:enter",
+    "RB": "key:esc",
+    "LT": "key:super",         # Giữ LT = giữ phím Super (kéo thả cửa sổ hoàn hảo)
+    "RT": "key:alt+right",        # Tiến tới
+    "UP": "key:pageup",
+    "DOWN": "key:pagedown",
+    "LEFT": "key:ctrl+pageup",    # tab trước
+    "RIGHT": "key:ctrl+pagedown", # tab sau
+}
+
+BTN_NAMES = {e.BTN_X: "X", e.BTN_Y: "Y", e.BTN_TR: "RB", e.BTN_THUMBL: "L3",
+             e.BTN_THUMBR: "R3", e.BTN_MODE: "GUIDE", e.BTN_TL2: "LT", e.BTN_TR2: "RT"}
+TRIGGER_AXES = {e.ABS_Z: "LT", e.ABS_RZ: "RT"}   # tay cầm Xbox: LT/RT là trục analog
+VALID_TOKENS = set(BTN_NAMES.values()) | {"UP", "DOWN", "LEFT", "RIGHT"}
+KEY_ALIASES = {
+    "ctrl": "LEFTCTRL", "control": "LEFTCTRL", "alt": "LEFTALT", "shift": "LEFTSHIFT",
+    "super": "LEFTMETA", "win": "LEFTMETA", "meta": "LEFTMETA",
+    "enter": "ENTER", "return": "ENTER", "esc": "ESC", "escape": "ESC",
+    "del": "DELETE", "delete": "DELETE", "backspace": "BACKSPACE",
+    "pgup": "PAGEUP", "pgdn": "PAGEDOWN", "pageup": "PAGEUP", "pagedown": "PAGEDOWN",
+}
+MOUSE_NAMES = {"left": e.BTN_LEFT, "right": e.BTN_RIGHT, "middle": e.BTN_MIDDLE,
+               "back": e.BTN_SIDE, "forward": e.BTN_EXTRA}
+SCROLL_DIRS = {"up": (e.REL_WHEEL, 1), "down": (e.REL_WHEEL, -1),
+               "left": (e.REL_HWHEEL, -1), "right": (e.REL_HWHEEL, 1)}
+
+
+def parse_action(spec):
+    kind, _, arg = spec.partition(":")
+    kind, arg = kind.strip().lower(), arg.strip()
+    if kind == "key":
+        codes = []
+        for part in arg.lower().split("+"):
+            part = part.strip()
+            code = getattr(e, "KEY_" + KEY_ALIASES.get(part, part.upper()), None)
+            if not isinstance(code, int):
+                raise ValueError("phím không hợp lệ: '%s'" % part)
+            codes.append(code)
+        return ("key", codes)
+    if kind == "mouse":
+        if arg.lower() not in MOUSE_NAMES:
+            raise ValueError("nút chuột không hợp lệ: '%s'" % arg)
+        return ("mouse", MOUSE_NAMES[arg.lower()])
+    if kind == "scroll":
+        if arg.lower() not in SCROLL_DIRS:
+            raise ValueError("hướng cuộn không hợp lệ: '%s'" % arg)
+        return ("scroll", SCROLL_DIRS[arg.lower()])
+    if kind == "cmd":
+        if not arg:
+            raise ValueError("thiếu lệnh sau 'cmd:'")
+        return ("cmd", arg)
+    if kind == "kb":
+        if arg.lower() not in ("toggle", "snap"):
+            raise ValueError("kb chỉ nhận 'toggle' hoặc 'snap'")
+        return ("kb", arg.lower())
+    raise ValueError("hành động không hợp lệ: '%s'" % spec)
+
+
+REPEAT_DELAY = 350    # ms trước khi lặp khi giữ hướng
+REPEAT_RATE = 90      # ms giữa các lần lặp
+STICK_THRESHOLD = 0.5
+BOTTOM_MARGIN = 24    # khoảng cách tới mép màn hình khi snap
+MOVE_SPEED = 14       # px mỗi nhịp khi đẩy cần phải hết cỡ (dời bàn phím)
+MOVE_TICK = 16        # ms giữa các nhịp di chuyển
+MOVE_DEADZONE = 0.25
+MOUSE_TICK = 8        # ms giữa các nhịp cập nhật chuột
+MOUSE_SPEED = 9.0     # px mỗi nhịp khi đẩy cần trái hết cỡ
+SCROLL_SPEED = 0.08   # nấc cuộn mỗi nhịp khi đẩy cần phải hết cỡ
+
+
+def curve(v):
+    """Vùng chết đã được normf() cắt; ở đây co giãn lại và áp đường cong bậc 2:
+    đẩy nhẹ thì chậm và chính xác, đẩy hết cỡ thì nhanh."""
+    if v == 0:
+        return 0.0
+    a = (abs(v) - MOVE_DEADZONE) / (1.0 - MOVE_DEADZONE)
+    a = a * a
+    return a if v > 0 else -a
+
+
+# ------------------------------------------------------------ bố cục phím --
+class Key:
+    def __init__(self, label, code, width=4, shifted=None, mod=False):
+        self.label = label
+        self.shifted = shifted or label
+        self.code = code
+        self.width = width
+        self.mod = mod
+        self.x = 0
+        self.button = None
+
+    @property
+    def center(self):
+        return self.x + self.width / 2
+
+
+def K(label, name, width=4, shifted=None, mod=False):
+    return Key(label, getattr(e, "KEY_" + name), width, shifted, mod)
+
+
+def build_rows():
+    r0 = [K("Esc", "ESC")]
+    for ch, sh in zip("1234567890", "!@#$%^&*()"):
+        r0.append(K(ch, ch, 4, sh))
+    r0 += [K("-", "MINUS", 4, "_"), K("=", "EQUAL", 4, "+"), K("⌫", "BACKSPACE", 8)]
+
+    r1 = [K("Tab", "TAB", 6)]
+    r1 += [K(c, c.upper(), 4, c.upper()) for c in "qwertyuiop"]
+    r1 += [K("[", "LEFTBRACE", 4, "{"), K("]", "RIGHTBRACE", 4, "}"),
+           K("\\", "BACKSLASH", 6, "|")]
+
+    r2 = [K("Caps", "CAPSLOCK", 7)]
+    r2 += [K(c, c.upper(), 4, c.upper()) for c in "asdfghjkl"]
+    r2 += [K(";", "SEMICOLON", 4, ":"), K("'", "APOSTROPHE", 4, '"'),
+           K("⏎", "ENTER", 9)]
+
+    r3 = [K("Shift", "LEFTSHIFT", 9, mod=True)]
+    r3 += [K(c, c.upper(), 4, c.upper()) for c in "zxcvbnm"]
+    r3 += [K(",", "COMMA", 4, "<"), K(".", "DOT", 4, ">"), K("/", "SLASH", 4, "?"),
+           K("▲", "UP", 6), K("Del", "DELETE", 5)]
+
+    r4 = [K("Ctrl", "LEFTCTRL", 6, mod=True), K("Super", "LEFTMETA", 6, mod=True),
+          K("Alt", "LEFTALT", 6, mod=True), K("Space", "SPACE", 24),
+          K("◀", "LEFT", 6), K("▼", "DOWN", 6), K("▶", "RIGHT", 6)]
+
+    rows = [r0, r1, r2, r3, r4]
+    for row in rows:
+        x = 0
+        for k in row:
+            k.x = x
+            x += k.width
+    return rows
+
+
+ROWS = build_rows()
+ALL_CODES = sorted({k.code for row in ROWS for k in row})
+UI_KEYS = sorted(set(ALL_CODES) | set(range(1, 249)))
+
+COLORS_FILE = os.path.expanduser("~/.config/ctrl-osk/colors.css")
+
+DEFAULT_COLORS = """
+@define-color osk_bg rgba(18, 18, 26, 0.94);
+@define-color osk_key #2b2b3a;
+@define-color osk_text #e6e6f0;
+@define-color osk_on #4f8cff;
+@define-color osk_on_text #ffffff;
+@define-color osk_sel #ff4fa3;
+@define-color osk_sel_text #ffffff;
+@define-color osk_sel_glow #ffd1e8;
+@define-color osk_hint #9a9ab0;
+"""
+
+CSS = """
+.osk { background: @osk_bg; }
+.osk button {
+    font-size: 20px; font-weight: 600; min-height: 54px;
+    border-radius: 8px; border: none;
+    background: @osk_key; color: @osk_text;
+}
+.osk button.on  { background: @osk_on; color: @osk_on_text; }
+.osk button.sel { background: @osk_sel; color: @osk_sel_text; box-shadow: 0 0 0 3px @osk_sel_glow; }
+.osk label.hint { color: @osk_hint; font-size: 13px; }
+"""
+
+
+def read_css():
+    user = ""
+    try:
+        with open(COLORS_FILE) as f:
+            user = f.read()
+    except OSError:
+        pass
+    return DEFAULT_COLORS + user + CSS
+
+
+# ----------------------------------------------------------------- cửa sổ --
+class OSK(Gtk.ApplicationWindow):
+    def __init__(self, app, daemon):
+        super().__init__(application=app)
+        self.daemon = daemon
+        self.mods = set()
+        self.cur = (2, 5)
+
+        self.add_css_class("osk")
+        self.set_decorated(False)
+        self.set_default_size(1100, 380)
+
+        LayerShell.init_for_window(self)
+        LayerShell.set_namespace(self, "ctrl-osk")
+        LayerShell.set_layer(self, LayerShell.Layer.OVERLAY)
+        LayerShell.set_anchor(self, LayerShell.Edge.TOP, True)
+        LayerShell.set_keyboard_mode(self, LayerShell.KeyboardMode.NONE)
+        self.y = None
+
+        self.provider = Gtk.CssProvider()
+        self.reload_css()
+        Gtk.StyleContext.add_provider_for_display(
+            Gdk.Display.get_default(), self.provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+        os.makedirs(os.path.dirname(COLORS_FILE), exist_ok=True)
+        try:
+            self.mon = Gio.File.new_for_path(COLORS_FILE).monitor_file(
+                Gio.FileMonitorFlags.WATCH_MOVES, None)
+            self.mon.connect("changed", lambda *a: self.reload_css())
+        except GLib.Error:
+            pass
+
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        for side in ("top", "bottom", "start", "end"):
+            getattr(box, "set_margin_" + side)(14)
+        self.set_child(box)
+
+        grid = Gtk.Grid(column_homogeneous=True, row_homogeneous=True,
+                        column_spacing=6, row_spacing=6)
+        grid.set_vexpand(True)
+        box.append(grid)
+        for r, row in enumerate(ROWS):
+            for k in row:
+                b = Gtk.Button(label=k.label)
+                b.set_focusable(False)
+                b.set_hexpand(True)
+                b.set_vexpand(True)
+                b.connect("clicked", self.on_click, k)
+                grid.attach(b, k.x, r, k.width, 1)
+                k.button = b
+
+        hint = Gtk.Label(
+            label="D-pad/Cần trái: di chuyển  ·  A: gõ  ·  B: xóa  ·  X: cách  ·  "
+                  "Y: Shift  ·  LB/RB: ← →  ·  Cần phải ↑↓: dời bàn phím  ·  "
+                  "Nhấn cần phải: nhảy lên/xuống  ·  Back+Start: ẩn/hiện")
+        hint.add_css_class("hint")
+        box.append(hint)
+        self.refresh()
+
+    def reload_css(self):
+        css = read_css()
+        try:
+            self.provider.load_from_string(css)
+        except AttributeError:
+            self.provider.load_from_data(css.encode())
+
+    def screen_h(self):
+        mons = Gdk.Display.get_default().get_monitors()
+        if mons.get_n_items():
+            return mons.get_item(0).get_geometry().height
+        return 1080
+
+    def max_y(self):
+        return max(0, self.screen_h() - (self.get_height() or 380))
+
+    def place(self, y):
+        self.y = max(0, min(self.max_y(), int(y)))
+        LayerShell.set_margin(self, LayerShell.Edge.TOP, self.y)
+
+    def home(self):
+        self.place(self.max_y() - BOTTOM_MARGIN)
+
+    def snap(self):
+        if self.y is None:
+            self.home()
+        elif self.y > self.max_y() / 2:
+            self.place(BOTTOM_MARGIN)
+        else:
+            self.home()
+
+    def current(self):
+        r, i = self.cur
+        return ROWS[r][i]
+
+    def refresh(self):
+        shift = e.KEY_LEFTSHIFT in self.mods
+        for row in ROWS:
+            for k in row:
+                k.button.set_label(k.shifted if shift else k.label)
+                if k.mod and k.code in self.mods:
+                    k.button.add_css_class("on")
+                else:
+                    k.button.remove_css_class("on")
+                k.button.remove_css_class("sel")
+        self.current().button.add_css_class("sel")
+
+    def move(self, dx, dy):
+        r, i = self.cur
+        if dx:
+            i = (i + dx) % len(ROWS[r])
+        if dy:
+            cx = ROWS[r][i].center
+            r = (r + dy) % len(ROWS)
+            i = min(range(len(ROWS[r])), key=lambda j: abs(ROWS[r][j].center - cx))
+        self.cur = (r, i)
+        self.refresh()
+
+    def on_click(self, _btn, key):
+        for r, row in enumerate(ROWS):
+            if key in row:
+                self.cur = (r, row.index(key))
+        self.activate_key()
+
+    def activate_key(self):
+        k = self.current()
+        if k.mod:
+            self.toggle_mod(k.code)
+        else:
+            self.daemon.send(k.code)
+
+    def toggle_mod(self, code):
+        if code in self.mods:
+            self.mods.discard(code)
+        else:
+            self.mods.add(code)
+        self.refresh()
+
+    def clear_mods(self):
+        self.mods.clear()
+        self.refresh()
+
+
+# ----------------------------------------------------------------- daemon --
+def find_pad(forced=None):
+    if forced:
+        try:
+            return evdev.InputDevice(forced)
+        except OSError as ex:
+            print("Không mở được", forced, ex, file=sys.stderr)
+            return None
+    for path in evdev.list_devices():
+        try:
+            d = evdev.InputDevice(path)
+        except OSError:
+            continue
+        caps = d.capabilities()
+        keys = caps.get(e.EV_KEY, [])
+        axes = [a for a, _ in caps.get(e.EV_ABS, [])]
+        name = d.name.lower()
+        if (e.BTN_A in keys and e.ABS_X in axes
+                and "ctrl-osk" not in name and "antimicrox" not in name):
+            return d
+        d.close()
+    return None
+
+
+class Daemon:
+    def __init__(self, app, forced):
+        try:
+            self.ui = UInput({e.EV_KEY: UI_KEYS}, name="ctrl-osk")
+            self.mouse = UInput(
+                {e.EV_KEY: [e.BTN_LEFT, e.BTN_RIGHT, e.BTN_MIDDLE, e.BTN_SIDE, e.BTN_EXTRA],
+                 e.EV_REL: [e.REL_X, e.REL_Y, e.REL_WHEEL, e.REL_HWHEEL]},
+                name="ctrl-osk-mouse")
+        except (PermissionError, OSError) as ex:
+            print("Không tạo được thiết bị uinput:", ex,
+                  "\nKiểm tra: sudo modprobe uinput, và user thuộc nhóm 'input'.", file=sys.stderr)
+            sys.exit(1)
+        self.forced = forced
+        self.win = OSK(app, self)
+        self.dev = None
+        self.watch = None
+        self.visible = False
+        self.held = set()
+        self.dpad = [0, 0]
+        self.stick = [0, 0]
+        self.cur_dir = (0, 0)
+        self.rep_id = None
+        self.move_id = None
+        self.absinfo = {}
+        self.lx = self.ly = self.rx = self.ry = 0.0
+        self.mouse_on = False
+        self.mouse_id = None
+        self.grabbed = False
+        self.mdown = set()
+        self.macc = [0.0, 0.0]
+        self.sacc = [0.0, 0.0]
+        self.extra = {}
+        self.extra_down = {}
+        self.hat = [0, 0]
+        self.trig = {"LT": False, "RT": False}
+        self.load_extra()
+        GLib.timeout_add_seconds(3, self.ensure_dev)
+        self.ensure_dev()
+
+    def ensure_dev(self):
+        if self.dev is None:
+            d = find_pad(self.forced)
+            if d is not None:
+                os.set_blocking(d.fd, False)
+                self.dev = d
+                self.grabbed = False
+                axes = dict(d.capabilities().get(e.EV_ABS, []))
+                self.absinfo = {c: d.absinfo(c)
+                                for c in (e.ABS_X, e.ABS_Y, e.ABS_RX, e.ABS_RY,
+                                          e.ABS_Z, e.ABS_RZ)
+                                if c in axes}
+                self.watch = GLib.io_add_watch(
+                    d.fd, GLib.PRIORITY_DEFAULT,
+                    GLib.IOCondition.IN | GLib.IOCondition.HUP | GLib.IOCondition.ERR,
+                    self.on_pad)
+                print("Đã kết nối tay cầm:", d.name, d.path, file=sys.stderr)
+        return True
+
+    def drop_dev(self):
+        if self.visible:
+            self.show(False)
+        self.set_mouse(False)
+        try:
+            self.dev.close()
+        except Exception:
+            pass
+        self.dev = None
+        self.watch = None
+        self.grabbed = False
+        self.held.clear()
+        self.lx = self.ly = self.rx = self.ry = 0.0
+        print("Tay cầm ngắt kết nối...", file=sys.stderr)
+
+    def on_pad(self, _fd, cond):
+        if cond & (GLib.IOCondition.HUP | GLib.IOCondition.ERR):
+            self.drop_dev()
+            return False
+        try:
+            for ev in self.dev.read():
+                self.handle(ev)
+        except BlockingIOError:
+            pass
+        except OSError:
+            self.drop_dev()
+            return False
+        return True
+
+    def sync_grab(self):
+        if not self.dev:
+            return
+        want = self.visible or self.mouse_on
+        if want and not self.grabbed:
+            try:
+                self.dev.grab()
+                self.grabbed = True
+            except OSError as ex:
+                print("Không grab được tay cầm:", ex, file=sys.stderr)
+        elif not want and self.grabbed:
+            try:
+                self.dev.ungrab()
+            except OSError:
+                pass
+            self.grabbed = False
+
+    def handle(self, ev):
+        if ev.type == e.EV_KEY:
+            if ev.value == 1:
+                self.held.add(ev.code)
+                if TOGGLE_CHORD <= self.held:
+                    self.show(not self.visible)
+                elif MOUSE_CHORD <= self.held:
+                    self.set_mouse(not self.mouse_on)
+                elif self.mouse_on:
+                    if ev.code in MOUSE_BTNS:
+                        self.mouse_button(ev.code, 1)
+                    elif ev.code in BTN_NAMES:
+                        self.extra_press(BTN_NAMES[ev.code])
+                elif self.visible:
+                    self.on_button(ev.code)
+            elif ev.value == 0:
+                self.held.discard(ev.code)
+                self.mouse_button(ev.code, 0)
+                if ev.code in BTN_NAMES:
+                    self.extra_release(BTN_NAMES[ev.code])
+        elif ev.type == e.EV_ABS:
+            c = ev.code
+            if c == e.ABS_X:
+                self.lx = self.normf(c, ev.value)
+            elif c == e.ABS_Y:
+                self.ly = self.normf(c, ev.value)
+            elif c == e.ABS_RX:
+                self.rx = self.normf(c, ev.value)
+            elif c == e.ABS_RY:
+                self.ry = self.normf(c, ev.value)
+            if self.mouse_on:
+                self.extra_axis(c, ev.value)
+            if not self.visible or self.mouse_on:
+                return
+            if c == e.ABS_HAT0X:
+                self.dpad[0] = ev.value
+            elif c == e.ABS_HAT0Y:
+                self.dpad[1] = ev.value
+            elif c in (e.ABS_X, e.ABS_Y):
+                self.stick[0 if c == e.ABS_X else 1] = self.norm(c, ev.value)
+            else:
+                return
+            self.update_dir()
+
+    def normf(self, code, value):
+        info = self.absinfo.get(code)
+        if not info:
+            return 0.0
+        mid = (info.max + info.min) / 2
+        half = (info.max - info.min) / 2 or 1
+        v = (value - mid) / half
+        if abs(v) < MOVE_DEADZONE:
+            return 0.0
+        return max(-1.0, min(1.0, v))
+
+    def move_win(self):
+        if not self.visible:
+            self.move_id = None
+            return False
+        if self.ry:
+            if self.win.y is None:
+                self.win.home()
+            self.win.place(self.win.y + self.ry * MOVE_SPEED)
+        return True
+
+    def norm(self, code, value):
+        info = self.absinfo.get(code)
+        if not info:
+            return 0
+        mid = (info.max + info.min) / 2
+        half = (info.max - info.min) / 2 or 1
+        v = (value - mid) / half
+        if v > STICK_THRESHOLD:
+            return 1
+        if v < -STICK_THRESHOLD:
+            return -1
+        return 0
+
+    def on_button(self, code):
+        if code == e.BTN_A:
+            self.win.activate_key()
+        elif code == e.BTN_B:
+            self.send(e.KEY_BACKSPACE)
+        elif code == e.BTN_X:
+            self.send(e.KEY_SPACE)
+        elif code == e.BTN_Y:
+            self.win.toggle_mod(e.KEY_LEFTSHIFT)
+        elif code == e.BTN_TL:
+            self.send(e.KEY_LEFT)
+        elif code == e.BTN_TR:
+            self.send(e.KEY_RIGHT)
+        elif code == e.BTN_THUMBR:
+            self.win.snap()
+
+    def update_dir(self):
+        d = (self.dpad[0] or self.stick[0], self.dpad[1] or self.stick[1])
+        if d == self.cur_dir:
+            return
+        self.cur_dir = d
+        self.stop_repeat()
+        if d != (0, 0) and self.visible:
+            self.win.move(*d)
+            self.rep_id = GLib.timeout_add(REPEAT_DELAY, self.start_repeat)
+
+    def start_repeat(self):
+        self.rep_id = GLib.timeout_add(REPEAT_RATE, self.repeat)
+        return False
+
+    def repeat(self):
+        if self.cur_dir == (0, 0) or not self.visible:
+            self.rep_id = None
+            return False
+        self.win.move(*self.cur_dir)
+        return True
+
+    def stop_repeat(self):
+        if self.rep_id:
+            GLib.source_remove(self.rep_id)
+            self.rep_id = None
+
+    def toggle(self):
+        self.show(not self.visible)
+
+    def show(self, on):
+        if on == self.visible:
+            return
+        self.visible = on
+        if on:
+            self.release_mouse_buttons()
+            self.sync_grab()
+            if self.win.y is None:
+                self.win.home()
+            self.win.present()
+            if not self.move_id:
+                self.move_id = GLib.timeout_add(MOVE_TICK, self.move_win)
+        else:
+            self.stop_repeat()
+            self.cur_dir = (0, 0)
+            self.dpad = [0, 0]
+            self.stick = [0, 0]
+            self.sync_grab()
+            self.win.set_visible(False)
+
+    def notify(self, text):
+        print(text, file=sys.stderr)
+        try:
+            subprocess.Popen(
+                ["notify-send", "-a", "ctrl-osk", "-t", "1500",
+                 "-h", "string:x-canonical-private-synchronous:ctrl-osk",
+                 "ctrl-osk", text],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError:
+            pass
+
+    def set_mouse(self, on):
+        if on == self.mouse_on:
+            return
+        if on and not self.dev:
+            return
+        self.mouse_on = on
+        if on:
+            self.stop_repeat()
+            self.cur_dir = (0, 0)
+            self.dpad = [0, 0]
+            self.stick = [0, 0]
+        else:
+            self.release_mouse_buttons()
+            self.hat = [0, 0]
+            self.trig = {"LT": False, "RT": False}
+            self.macc = [0.0, 0.0]
+            self.sacc = [0.0, 0.0]
+        self.sync_grab()
+        if on and not self.mouse_id:
+            self.mouse_id = GLib.timeout_add(MOUSE_TICK, self.mouse_tick)
+        self.notify("Chế độ chuột: BẬT" if on else "Chế độ chuột: TẮT")
+
+    def mouse_button(self, code, value):
+        btn = MOUSE_BTNS.get(code)
+        if btn is None:
+            return
+        if value == 1:
+            self.mdown.add(btn)
+            self.mouse.write(e.EV_KEY, btn, 1)
+            self.mouse.syn()
+        elif btn in self.mdown:
+            self.mdown.discard(btn)
+            self.mouse.write(e.EV_KEY, btn, 0)
+            self.mouse.syn()
+
+    def release_mouse_buttons(self):
+        self.extra_down.clear()
+        if not self.mdown:
+            return
+        for btn in list(self.mdown):
+            self.mouse.write(e.EV_KEY, btn, 0)
+        self.mouse.syn()
+        self.mdown.clear()
+
+    def load_extra(self):
+        self.extra = {}
+        for tok, spec in MOUSE_EXTRA.items():
+            tok = tok.strip().upper()
+            if not spec or not spec.strip():
+                continue
+            if tok not in VALID_TOKENS:
+                continue
+            try:
+                self.extra[tok] = parse_action(spec)
+            except ValueError as ex:
+                print("MOUSE_EXTRA: %s -> %s" % (tok, ex), file=sys.stderr)
+
+    def mouse_raw(self, btn, value):
+        if value:
+            self.mdown.add(btn)
+        else:
+            self.mdown.discard(btn)
+        self.mouse.write(e.EV_KEY, btn, value)
+        self.mouse.syn()
+
+    def extra_press(self, tok):
+        act = self.extra.get(tok)
+        if not act or tok in self.extra_down:
+            return
+        kind, arg = act
+        if kind == "key":
+            for c in arg:
+                self.ui.write(e.EV_KEY, c, 1)
+            self.ui.syn()
+            self.extra_down[tok] = ("key", arg)
+        elif kind == "mouse":
+            self.mouse_raw(arg, 1)
+            self.extra_down[tok] = ("mouse", arg)
+        elif kind == "scroll":
+            self.mouse.write(e.EV_REL, arg[0], arg[1])
+            self.mouse.syn()
+        elif kind == "cmd":
+            try:
+                subprocess.Popen(arg, shell=True, start_new_session=True,
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except OSError as ex:
+                print("Không chạy được lệnh:", arg, ex, file=sys.stderr)
+        elif kind == "kb":
+            if arg == "toggle":
+                self.show(not self.visible)
+            elif self.visible:
+                self.win.snap()
+
+    def extra_release(self, tok):
+        item = self.extra_down.pop(tok, None)
+        if item is not None:
+            kind, arg = item
+            if kind == "key":
+                for c in reversed(arg):
+                    self.ui.write(e.EV_KEY, c, 0)
+                self.ui.syn()
+            elif kind == "mouse":
+                self.mouse_raw(arg, 0)
+
+    def extra_axis(self, c, v):
+        if c in (e.ABS_HAT0X, e.ABS_HAT0Y):
+            i = 0 if c == e.ABS_HAT0X else 1
+            names = {-1: ("LEFT", "UP")[i], 1: ("RIGHT", "DOWN")[i]}
+            old = self.hat[i]
+            if old != v:
+                if old in names:
+                    self.extra_release(names[old])
+                self.hat[i] = v
+                if v in names:
+                    self.extra_press(names[v])
+        elif c in TRIGGER_AXES:
+            info = self.absinfo.get(c)
+            if not info:
+                return
+            name = TRIGGER_AXES[c]
+            pressed = (v - info.min) / ((info.max - info.min) or 1) > 0.5
+            if pressed != self.trig[name]:
+                self.trig[name] = pressed
+                if pressed:
+                    self.extra_press(name)
+                else:
+                    self.extra_release(name)
+
+    def mouse_tick(self):
+        if not self.mouse_on:
+            self.mouse_id = None
+            return False
+        moved = False
+
+        self.macc[0] += curve(self.lx) * MOUSE_SPEED
+        self.macc[1] += curve(self.ly) * MOUSE_SPEED
+        ix, iy = int(self.macc[0]), int(self.macc[1])
+        if ix:
+            self.macc[0] -= ix
+            self.mouse.write(e.EV_REL, e.REL_X, ix)
+            moved = True
+        if iy:
+            self.macc[1] -= iy
+            self.mouse.write(e.EV_REL, e.REL_Y, iy)
+            moved = True
+
+        if not self.visible:
+            self.sacc[0] += curve(self.rx) * SCROLL_SPEED
+            self.sacc[1] += -curve(self.ry) * SCROLL_SPEED
+            for i, axis in enumerate((e.REL_HWHEEL, e.REL_WHEEL)):
+                n = int(self.sacc[i])
+                if n:
+                    self.sacc[i] -= n
+                    self.mouse.write(e.EV_REL, axis, n)
+                    moved = True
+
+        if moved:
+            self.mouse.syn()
+        return True
+
+    def send(self, code):
+        mods = sorted(self.win.mods)
+        for m in mods:
+            self.ui.write(e.EV_KEY, m, 1)
+        if mods:
+            self.ui.syn()
+        self.ui.write(e.EV_KEY, code, 1)
+        self.ui.syn()
+        self.ui.write(e.EV_KEY, code, 0)
+        self.ui.syn()
+        for m in reversed(mods):
+            self.ui.write(e.EV_KEY, m, 0)
+        if mods:
+            self.ui.syn()
+        self.win.clear_mods()
+
+
+def main():
+    forced = sys.argv[1] if len(sys.argv) > 1 else None
+    app = Gtk.Application(application_id="dev.ctrlosk")
+    state = {}
+
+    def on_activate(a):
+        if "d" in state:
+            state["d"].toggle()
+            return
+        a.hold()
+        state["d"] = Daemon(a, forced)
+
+    def on_usr1():
+        if "d" in state:
+            state["d"].toggle()
+        return True
+
+    def on_usr2():
+        if "d" in state:
+            state["d"].set_mouse(not state["d"].mouse_on)
+        return True
+
+    def on_term():
+        if "d" in state:
+            state["d"].show(False)
+            state["d"].set_mouse(False)
+        app.quit()
+        return False
+
+    app.connect("activate", on_activate)
+    GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1, on_usr1)
+    GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR2, on_usr2)
+    GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGTERM, on_term)
+    app.run(None)
+
+
+if __name__ == "__main__":
+    main()
